@@ -1,0 +1,65 @@
+val connection = ConnectionFactory.createConnection(HBaseConfiguration.create())
+val tableName = TableName.valueOf("namespace:table")
+val table = connection.getTable(tableName)
+val scan = new Scan().setLimit(10)
+val scanner = table.getScanner(scan)
+
+scanner.forEach { result =>
+  val cfMap = result.getNoVersionMap
+  cfMap.forEach { (cf, qMap) =>
+    val cfStr = Bytes.toString(cf)
+    qMap.forEach { (q, _) =>
+      val qualifier = Bytes.toString(q)
+      println(s"$cfStr:$qualifier")
+    }
+  }
+}
+
+val conf = HBaseConfiguration.create()
+conf.set("hbase.zookeeper.quorum", "localhost")
+conf.set(TableInputFormat.INPUT_TABLE, "namespace:your_table")
+
+val hBaseRDD = spark.sparkContext.newAPIHadoopRDD(
+  conf,
+  classOf[TableInputFormat],
+  classOf[ImmutableBytesWritable],
+  classOf[Result]
+)
+
+val rowRDD = hBaseRDD.map { case (_, result) =>
+  val rowKey = Bytes.toString(result.getRow)
+  val name = Bytes.toString(result.getValue(Bytes.toBytes("info"), Bytes.toBytes("name")))
+  val city = Bytes.toString(result.getValue(Bytes.toBytes("location"), Bytes.toBytes("city")))
+
+  (rowKey, name, city)
+}
+
+val df = rowRDD.toDF("id", "name", "city")
+df.show()
+
+import org.apache.hadoop.hbase.mapreduce.TableSnapshotInputFormat
+import org.apache.hadoop.hbase.client.Result
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.mapreduce.Job
+
+val conf = HBaseConfiguration.create()
+conf.set("hbase.rootdir", "hdfs://your-hbase-rootdir") // very important!
+conf.set("hbase.zookeeper.quorum", "zk1,zk2,zk3")
+
+conf.set(TableSnapshotInputFormat.SNAPSHOT_NAME_KEY, "snapshot_name")
+conf.set(TableSnapshotInputFormat.SNAPSHOT_DIR_KEY, "/path/to/snapshot_export")
+
+val job = Job.getInstance(conf)
+TableSnapshotInputFormat.setInput(job, "snapshot_name", new Path("/path/to/snapshot_export"))
+
+val snapshotRDD = spark.sparkContext.newAPIHadoopRDD(
+  job.getConfiguration,
+  classOf[TableSnapshotInputFormat],
+  classOf[ImmutableBytesWritable],
+  classOf[Result]
+)
+
+
+
+
