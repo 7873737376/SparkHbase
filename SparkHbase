@@ -60,6 +60,72 @@ val snapshotRDD = spark.sparkContext.newAPIHadoopRDD(
   classOf[Result]
 )
 
+✅ 1. Connect to HBase and Get Table Schema
+val conf = HBaseConfiguration.create()
+val connection = ConnectionFactory.createConnection(conf)
+val admin = connection.getAdmin
+
+val tableName = TableName.valueOf("namespace:your_table_name")
+val descriptor = admin.getDescriptor(tableName)
+
+val columnFamilies = descriptor.getColumnFamilies.map(_.getNameAsString)
+
+✅ 2. (Optional) Define known qualifiers for each column family
+Since HBase doesn't store qualifiers in schema, you’ll need to scan a few rows to extract the qualifiers dynamically:
+
+val table = connection.getTable(tableName)
+val scan = new Scan().setLimit(10) // scan first 10 rows
+val scanner = table.getScanner(scan)
+
+val colMap = scala.collection.mutable.Map[String, scala.collection.mutable.Set[String]]()
+
+scanner.forEach { result =>
+  val cfMap = result.getNoVersionMap
+  cfMap.forEach { (cf, qMap) =>
+    val cfStr = Bytes.toString(cf)
+    qMap.forEach { (q, _) =>
+      val qStr = Bytes.toString(q)
+      val set = colMap.getOrElseUpdate(cfStr, scala.collection.mutable.Set())
+      set += qStr
+    }
+  }
+}
+scanner.close()
+Now colMap will have:
+
+Map(
+  "info" -> Set("name", "age"),
+  "location" -> Set("city")
+)
+
+✅ 3. Build hbase.columns.mapping String
+Assuming your row key column is "id":
+
+val rowKey = "id"
+
+val mappingStr = 
+  Seq(s"key=$rowKey") ++ 
+  colMap.toSeq.flatMap { case (cf, qualifiers) =>
+    qualifiers.toSeq.map(q => s"$cf:$q")
+  }
+val finalMapping = mappingStr.mkString(",")
+✅ 4. Example Output
+finalMapping
+// Output: "key=id,info:name,info:age,location:city"
+You can now pass this to:
+
+.option("hbase.columns.mapping", finalMapping)
+✅ All Together in a Function?
+
+Would you like a reusable function like:
+
+def generateHBaseColumnMapping(tableName: String, rowKeyCol: String): String
+
+
+
+
+
+
 
 
 
