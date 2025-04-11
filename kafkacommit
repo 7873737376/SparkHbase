@@ -1,0 +1,23 @@
+a few types of commits depending on the consumer configuration and method used:
+
+1. Automatic Commit
+Enabled by: enable.auto.commit=true
+Frequency controlled by: auto.commit.interval.ms
+How it works: The consumer automatically commits offsets at a regular interval, regardless of whether messages have been processed successfully.
+Pros: Easy to use.
+Cons: Risk of message loss or duplication if processing fails or the consumer crashes before the next commit.
+2. Manual Commit (Synchronous)
+Method: consumer.commitSync()
+How it works: Commits the last offset returned by the poll() method. It blocks until the broker confirms the commit.
+Pros: Gives full control, safer in terms of avoiding message loss.
+Cons: Slower due to blocking; if the broker is slow or unavailable, this could impact performance.
+3. Manual Commit (Asynchronous)
+Method: consumer.commitAsync()
+How it works: Similar to commitSync, but it doesn’t block. You can pass a callback to handle commit success/failure.
+Pros: Better performance.
+Cons: Harder to guarantee commit success; may silently fail without callback handling.
+4. Commit Specific Offsets
+Method: consumer.commitSync(Map<TopicPartition, OffsetAndMetadata>)
+How it works: You can commit offsets explicitly for specific partitions, useful in multi-threaded or complex processing scenarios.
+Pros: Fine-grained control.
+Cons: Requires careful tracking of processed messages.
