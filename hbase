@@ -1,0 +1,77 @@
+Creating Spark DataFrame from HBase Table
+
+Overview
+
+This guide explains how to read data directly from an HBase table and create a Spark DataFrame using native HBase APIs and Spark (without Hive or connectors).
+
+1. HBase Table Creation
+
+# HBase Shell commands
+create 'employee', 'personal', 'professional'
+
+put 'employee', 'Key1', 'personal:name', 'Rakesh'
+put 'employee', 'Key1', 'professional:designation', 'Developer'
+put 'employee', 'Key1', 'professional:salary', '45000'
+2. Scala Code to Read from HBase and Create DataFrame
+
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.client.{ConnectionFactory, Result, Scan}
+import org.apache.hadoop.hbase.filter.PrefixFilter
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.hbase.TableName
+import org.apache.spark.sql.{SparkSession, Row}
+import org.apache.spark.sql.types.{StructType, StructField, StringType}
+
+import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
+
+val spark = SparkSession.builder()
+  .appName("HBaseToDataFrame")
+  .master("local[*]")
+  .getOrCreate()
+
+val hConf = HBaseConfiguration.create()
+hConf.set("hbase.zookeeper.quorum", "localhost")
+hConf.set("hbase.zookeeper.property.clientPort", "2181")
+
+val conn = ConnectionFactory.createConnection(hConf)
+val table = conn.getTable(TableName.valueOf("employee"))
+
+val scan = new Scan()
+scan.setFilter(new PrefixFilter(Bytes.toBytes("Key")))
+
+scan.addColumn(Bytes.toBytes("personal"), Bytes.toBytes("name"))
+scan.addColumn(Bytes.toBytes("professional"), Bytes.toBytes("designation"))
+scan.addColumn(Bytes.toBytes("professional"), Bytes.toBytes("salary"))
+
+val scanner = table.getScanner(scan)
+val it = scanner.iterator()
+
+val rows = new ListBuffer[Row]()
+while (it.hasNext) {
+  val result = it.next()
+  val name = Bytes.toString(result.getValue(Bytes.toBytes("personal"), Bytes.toBytes("name")))
+  val designation = Bytes.toString(result.getValue(Bytes.toBytes("professional"), Bytes.toBytes("designation")))
+  val salary = Bytes.toString(result.getValue(Bytes.toBytes("professional"), Bytes.toBytes("salary")))
+  rows += Row(name, designation, salary)
+}
+
+scanner.close()
+table.close()
+conn.close()
+
+val schema = StructType(List(
+  StructField("name", StringType, true),
+  StructField("designation", StringType, true),
+  StructField("salary", StringType, true)
+))
+
+val resultDF = spark.createDataFrame(spark.sparkContext.parallelize(rows.toList), schema)
+resultDF.show()
+3. Output Example
+
++------+------------+-------+
+| name |designation| salary|
++------+------------+-------+
+|Rakesh| Developer | 45000 |
++------+------------+-------+
