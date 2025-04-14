@@ -1,0 +1,59 @@
+Basic HBase Shell Commands
+
+General
+status                           # Cluster status
+version                          # HBase version
+whoami                           # Shows current HBase user
+Namespace Commands
+list_namespace                   # List all namespaces
+create_namespace 'my_ns'        # Create a namespace
+describe_namespace 'my_ns'      # Describe a namespace
+drop_namespace 'my_ns'          # Drop a namespace (must be empty)
+Table Management
+
+list                             # List all tables
+create 'table', 'cf1', 'cf2'     # Create table with column families
+disable 'table'                  # Disable table
+enable 'table'                   # Enable table
+is_enabled 'table'               # Check if enabled
+is_disabled 'table'              # Check if disabled
+describe 'table'                 # Describe table schema
+alter 'table', NAME => 'cf1', VERSIONS => 3   # Alter column family
+drop 'table'                     # Drop table (must be disabled)
+Data Operations
+
+Insert (Put)
+put 'table', 'row1', 'cf1:col1', 'value1'
+put 'table', 'row1', 'cf1:col2', 'value2', ts  # with timestamp
+Retrieve (Get)
+get 'table', 'row1'
+get 'table', 'row1', {COLUMN => 'cf1:col1'}
+get 'table', 'row1', {COLUMN => 'cf1:col1', VERSIONS => 3}
+Scan
+scan 'table'
+scan 'table', {LIMIT => 5}
+scan 'table', {STARTROW => 'row1', STOPROW => 'row5'}
+scan 'table', {REVERSED => true, LIMIT => 10}  # HBase 2.0+
+Delete Operations
+
+delete 'table', 'row1', 'cf1:col1'
+deleteall 'table', 'row1'
+truncate 'table'       # Drops and recreates the table
+Row Count
+
+count 'table'
+Filters (Used with scan)
+
+PrefixFilter
+scan 'table', {FILTER => "PrefixFilter('2025')"}
+RowFilter
+scan 'table', {FILTER => "RowFilter(=, 'binary:row1')"}
+ColumnPrefixFilter
+scan 'table', {FILTER => "ColumnPrefixFilter('col')"}
+ValueFilter
+scan 'table', {FILTER => "ValueFilter(=, 'binary:value1')"}
+PageFilter (limit number of rows)
+scan 'table', {FILTER => "PageFilter(10)"}
+
+Flush MemStore to Disk (if data isn't showing)
+flush 'table'
