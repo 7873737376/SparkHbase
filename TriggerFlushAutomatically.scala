@@ -111,3 +111,23 @@ spark.streams.addListener(new StreamingQueryListener {
     println(s"Query terminated: ${event.id}")
   }
 })
+
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.TableName
+import org.apache.hadoop.hbase.client.{ConnectionFactory, Admin}
+
+def majorCompactTable(tableName: String): Unit = {
+  val conf = HBaseConfiguration.create()
+  val connection = ConnectionFactory.createConnection(conf)
+  val admin: Admin = connection.getAdmin
+
+  try {
+    admin.majorCompact(TableName.valueOf(tableName))
+    println(s"Major compaction triggered for table: $tableName")
+  } finally {
+    admin.close()
+    connection.close()
+  }
+}
+
+
