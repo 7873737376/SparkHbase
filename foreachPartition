@@ -1,0 +1,21 @@
+data.foreachPartition { partition =>
+  partition.foreach { row =>
+    try {
+      println(s"DataFrame row: $row")
+
+      // Print the full row key
+      val rowKey = row.getAs[Any]("rowKey") // adjust if your key column has a different name
+      println(s"RowKey: $rowKey")
+
+      // Print each column and its value
+      columns.foreach { column =>
+        val value = row.getAs[Any](column)
+        println(s"Column: $column, Value: $value")
+      }
+
+    } catch {
+      case e: Exception =>
+        throw new RuntimeException("Error while processing row", e)
+    }
+  }
+}
