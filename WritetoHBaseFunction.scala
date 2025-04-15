@@ -36,3 +36,69 @@ def getHBaseForeachWriter(tableNameStr: String, rowKeyCol: String, columnFamily:
     }
   }
 }
+
+
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory, Get, Table}
+import org.apache.hadoop.hbase.util.Bytes
+
+def verifyRowInHBase(rowKey: String, tableName: String): Boolean = {
+  val conf = HBaseConfiguration.create()
+  val connection = ConnectionFactory.createConnection(conf)
+  val table: Table = connection.getTable(TableName.valueOf(tableName))
+
+  try {
+    // Get a row by its row key
+    val get = new Get(Bytes.toBytes(rowKey))
+    val result = table.get(get)
+    
+    // Check if the result contains data
+    if (result.isEmpty) {
+      println(s"Row with rowKey=$rowKey not found!")
+      false
+    } else {
+      println(s"Row with rowKey=$rowKey found!")
+      true
+    }
+  } finally {
+    table.close()
+    connection.close()
+  }
+}
+
+val rowKey = "row1"
+val tableName = "your_hbase_table"
+val isInserted = verifyRowInHBase(rowKey, tableName)
+println(s"Row inserted: $isInserted")
+
+
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory, Scan, Table}
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.hbase.client.ResultScanner
+
+def scanTable(tableName: String): Unit = {
+  val conf = HBaseConfiguration.create()
+  val connection = ConnectionFactory.createConnection(conf)
+  val table = connection.getTable(TableName.valueOf(tableName))
+  
+  try {
+    val scan = new Scan() // Scan the entire table
+    val scanner: ResultScanner = table.getScanner(scan)
+
+    scanner.forEach { result =>
+      val rowKey = Bytes.toString(result.getRow)
+      println(s"Row found: $rowKey")
+    }
+  } finally {
+    connection.close()
+  }
+}
+
+scanTable("your_hbase_table")
+
+
+
+
+
+
