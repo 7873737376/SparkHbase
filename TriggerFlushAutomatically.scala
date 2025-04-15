@@ -69,3 +69,45 @@ Which HBase version you're on?
 Whether you're using HTable, BufferedMutator, or high-level connector?
 And how you validated the data (HBase shell, scan, REST API, etc.)?
 Then I can fine-tune the flush logic for your setup.
+
+
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.streaming.{StreamingQueryListener, QueryStartedEvent, QueryProgressEvent, QueryTerminatedEvent}
+import org.apache.hadoop.hbase.client.ConnectionFactory
+import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
+
+// Define flush function
+def flushTable(tableName: String): Unit = {
+  val conf = HBaseConfiguration.create()
+  val connection = ConnectionFactory.createConnection(conf)
+  val admin = connection.getAdmin
+  try {
+    admin.flush(TableName.valueOf(tableName))
+    println(s"Flush triggered for $tableName")
+  } finally {
+    admin.close()
+    connection.close()
+  }
+}
+
+// Create Spark session
+val spark = SparkSession.builder()
+  .appName("StructuredStreamingToHBase")
+  .master("local[*]") // remove in production
+  .getOrCreate()
+
+// Add HBase flush listener
+spark.streams.addListener(new StreamingQueryListener {
+  override def onQueryStarted(event: QueryStartedEvent): Unit = {
+    println(s"Query started: ${event.id}")
+  }
+
+  override def onQueryProgress(event: QueryProgressEvent): Unit = {
+    println(s"Query made progress: ${event.progress}")
+    flushTable("your_hbase_table") // Replace with your HBase table
+  }
+
+  override def onQueryTerminated(event: QueryTerminatedEvent): Unit = {
+    println(s"Query terminated: ${event.id}")
+  }
+})
