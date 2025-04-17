@@ -53,3 +53,45 @@ object DataFrameToHBaseBatch {
     spark.stop()
   }
 }
+
+
+import org.apache.hadoop.hbase.client.Put
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types._
+
+def createHBasePut(row: Row, rowKeyCol: String, columnFamily: String): Put = {
+  val rowKey = row.getAs[Any](rowKeyCol).toString
+  val put = new Put(Bytes.toBytes(rowKey))
+
+  row.schema.fields
+    .filter(_.name != rowKeyCol)
+    .foreach { field =>
+      val colName = field.name
+      val dataType = field.dataType
+      val value = row.getAs[Any](colName)
+
+      if (value != null) {
+        val bytesValue = dataType match {
+          case IntegerType => Bytes.toBytes(value.asInstanceOf[Int])
+          case LongType    => Bytes.toBytes(value.asInstanceOf[Long])
+          case DoubleType  => Bytes.toBytes(value.asInstanceOf[Double])
+          case FloatType   => Bytes.toBytes(value.asInstanceOf[Float])
+          case BooleanType => Bytes.toBytes(value.asInstanceOf[Boolean])
+          case StringType  => Bytes.toBytes(value.toString)
+          case _           => Bytes.toBytes(value.toString) // fallback
+        }
+
+        put.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(colName), bytesValue)
+      }
+    }
+
+  put
+}
+
+How to Use It
+val puts = df.rdd.map(row => createHBasePut(row, "rowkey", "cf")).collect().toList.asJava
+You can now reuse createHBasePut across any DataFrame that has a row key column and consistent column family.
+
+Let me know if you’d like to extend this to handle TimestampType, DecimalType, BinaryType, or nested structures.
+
